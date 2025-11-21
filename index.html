@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>今天吃什麼？命運扭蛋機</title>
+    <!-- Load Tailwind CSS CDN for styling --><script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom CSS styles for animations and Gacha Ball realism */
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+        
+        @keyframes chaos {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            25% { transform: translate(-10px, -120px) rotate(90deg); }
+            50% { transform: translate(5px, -60px) rotate(180deg); }
+            75% { transform: translate(-5px, -100px) rotate(270deg); }
+            100% { transform: translate(0, 0) rotate(360deg); }
+        }
+
+        @keyframes drop {
+            0% { top: 180px; opacity: 0; transform: scale(0.5); }
+            10% { opacity: 1; }
+            60% { top: 360px; transform: scale(1); }
+            80% { top: 350px; }
+            100% { top: 360px; }
+        }
+
+        @keyframes capsuleOpenTop {
+            0% { transform: translateY(0) rotate(0); opacity: 1; }
+            40% { opacity: 1; }
+            100% { transform: translateY(-150px) rotate(-45deg); opacity: 0; }
+        }
+        @keyframes capsuleOpenBottom {
+            0% { transform: translateY(0) rotate(0); opacity: 1; }
+            40% { opacity: 1; }
+            100% { transform: translateY(150px) rotate(45deg); opacity: 0; }
+        }
+        
+        @keyframes cardEmerge {
+            0% { transform: scale(0.5); opacity: 0; }
+            40% { transform: scale(1.05); opacity: 1; }
+            60% { transform: scale(0.98); }
+            80% { transform: scale(1.01); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+
+        .machine-shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) infinite both; }
+        .ball-chaos { animation-name: chaos; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+        .ball-drop { animation: drop 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; }
+        .capsule-top-open { animation: capsuleOpenTop 1.2s ease-out forwards; }
+        .capsule-bottom-open { animation: capsuleOpenBottom 1.2s ease-out forwards; }
+        .card-emerge { 
+            animation: cardEmerge 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            animation-delay: 0.2s;
+            opacity: 0; 
+        }
+
+        .gacha-ball {
+            box-shadow: inset -4px -4px 8px rgba(0,0,0,0.1), inset 4px 4px 12px rgba(255,255,255,0.8);
+            position: relative;
+            overflow: hidden;
+        }
+        .gacha-ball::after {
+            content: '';
+            position: absolute;
+            top: 15%;
+            left: 15%;
+            width: 30%;
+            height: 30%;
+            background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0) 100%);
+            border-radius: 50%;
+        }
+        .gacha-ball::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: rgba(0,0,0,0.05);
+            transform: translateY(-50%);
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+        /* Hide body scrollbar and ensure full-screen on mobile */
+        body {
+            height: 100vh;
+            overflow: hidden;
+            touch-action: pan-y; /* Allow vertical scrolling, but prevent default touch actions like zooming */
+        }
+        button {
+            touch-action: manipulation; /* Only allow tap/click, prevent browser default touch actions */
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-blue-50 font-sans text-slate-700 overflow-hidden flex flex-col items-center justify-center relative select-none">
+
+    <!-- Settings Button --><button 
+        id="settings-btn"
+        class="absolute top-6 right-6 bg-white p-3 rounded-full shadow-[2px_2px_0px_rgba(0,0,0,0.1)] border-2 border-slate-100 hover:bg-slate-50 active:translate-y-1 active:shadow-none transition-all z-20"
+    >
+        <span id="settings-btn-icon"></span>
+    </button>
+
+    <!-- Main Machine Container - Centered on screen now --><div class="relative w-80 h-[540px] flex flex-col items-center justify-center pb-8">
+        
+        <!-- The Gachapon Machine Body --><div id="gachapon-machine" class="relative w-72 h-[460px] bg-blue-300 rounded-[40px] border-[6px] border-white shadow-[12px_12px_0px_rgba(0,0,0,0.1)] overflow-hidden transition-transform z-10">
+            
+            <!-- Decorative Top Shine --><div class="absolute top-0 left-0 right-0 h-4 bg-white/20"></div>
+
+            <!-- Glass Dome Area --><div class="absolute top-6 left-4 right-4 h-64 bg-white rounded-[32px] border-4 border-blue-100 overflow-hidden shadow-inner z-10">
+                <!-- Glass Reflection --><div class="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-white/40 via-transparent to-transparent z-20 pointer-events-none"></div>
+                <div class="absolute top-4 left-4 w-16 h-8 bg-white/60 rounded-full -rotate-12 z-20 filter blur-[1px]"></div>
+                
+                <!-- The Balls inside the machine (Dynamically rendered by JS) --><div id="balls-container" class="w-full h-full relative">
+                    <!-- Balls will be injected here by renderDecorativeBalls() --></div>
+            </div>
+
+            <!-- Control Panel Area --><div class="absolute bottom-0 w-full h-48 bg-blue-400 flex flex-col items-center pt-4 rounded-b-[34px]">
+                <div class="w-full h-2 bg-black/10 absolute top-0"></div>
+                
+                <!-- Label Plate --><div class="bg-blue-500 px-4 py-1 rounded-lg border-2 border-blue-200/50 mb-1 shadow-sm">
+                    <span class="text-white font-bold text-xs tracking-widest drop-shadow-md">PUSH START</span>
+                </div>
+
+                <!-- Knob & Dial --><div class="relative w-28 h-28 flex items-center justify-center mt-2">
+                    <div class="w-24 h-24 bg-white rounded-full shadow-[inset_0_2px_5px_rgba(0,0,0,0.1)] border-4 border-blue-200 flex items-center justify-center">
+                        <button 
+                            id="spin-button"
+                            class="w-20 h-20 rounded-full bg-yellow-300 border-b-[6px] border-r-[6px] border-yellow-500 flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 active:border-none active:shadow-inner"
+                        >
+                            <div class="w-16 h-4 bg-yellow-500/30 rounded-full"></div>
+                            <div class="absolute w-4 h-16 bg-yellow-500/30 rounded-full"></div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Exit Hole --><div class="absolute bottom-4 w-24 h-14 bg-slate-800 rounded-t-full border-4 border-blue-500/50 shadow-inner"></div>
+            </div>
+        </div>
+
+        <!-- Machine Legs --><div class="absolute bottom-4 left-10 w-6 h-8 bg-blue-400 rounded-b-xl border-2 border-white z-0"></div>
+        <div class="absolute bottom-4 right-10 w-6 h-8 bg-blue-400 rounded-b-xl border-2 border-white z-0"></div>
+
+        <!-- The Falling Ball (Animation element) --><div id="falling-ball-container">
+            <!-- Falling ball injected here --></div>
+    </div>
+
+    <!-- Result Overlay / Modal --><div id="result-overlay" class="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 hidden">
+        <div class="relative flex items-center justify-center w-full max-w-xs">
+            
+            <!-- 扭蛋殼 (動畫撥開後消失) --><div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-40">
+                <div id="capsule-top" class="w-32 h-16 rounded-t-full border-4 border-white shadow-2xl origin-bottom mb-[-2px] gacha-ball"></div>
+                <div id="capsule-bottom" class="w-32 h-16 rounded-b-full border-4 border-white shadow-2xl origin-top mt-[-2px] gacha-ball"></div>
+            </div>
+
+            <!-- 結果卡片 --><div class="relative z-20 w-full bg-white rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] p-6 flex flex-col items-center text-center card-emerge border-4 border-white/50">
+                <span id="sparkle-top-left" class="absolute -top-4 -left-4 text-yellow-400 w-12 h-12 animate-pulse z-30 drop-shadow-md"></span>
+                <span id="sparkle-bottom-right" class="absolute -bottom-2 -right-2 text-blue-300 w-10 h-10 animate-pulse z-30 drop-shadow-md" style="animation-delay: 0.5s;"></span>
+                
+                <div id="result-utensils-container" class="mb-4 p-4 rounded-full shadow-inner">
+                    <span id="utensils-icon"></span>
+                </div>
+
+                <h2 class="text-sm text-slate-400 font-bold mb-1 uppercase tracking-wide">今日午餐是</h2>
+                <div id="result-text" class="text-3xl font-black text-slate-800 mb-6 break-words w-full leading-tight">
+                    結果
+                </div>
+
+                <div class="flex gap-3 w-full">
+                    <button 
+                        id="respin-button"
+                        class="flex-1 bg-blue-400 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-2xl shadow-[0px_4px_0px_#1D4ED8] active:shadow-none active:translate-y-[4px] transition-all flex items-center justify-center gap-2"
+                    >
+                        <span id="respin-icon"></span>
+                        重抽
+                    </button>
+                    <button 
+                        id="decide-button"
+                        class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3 px-4 rounded-2xl shadow-[0px_4px_0px_#94A3B8] active:shadow-none active:translate-y-[4px] transition-all"
+                    >
+                        決定了
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Settings Panel --><div id="settings-panel" class="absolute inset-0 z-50 flex items-end sm:items-center justify-center bg-black/20 backdrop-blur-sm hidden">
+        <div class="bg-white w-full max-w-md h-[80vh] sm:h-[600px] sm:rounded-3xl rounded-t-3xl shadow-2xl flex flex-col overflow-hidden animate-[slideUp_0.3s_ease-out]">
+            <div class="p-6 bg-blue-100 flex justify-between items-center">
+                <h2 class="text-xl font-bold text-blue-600 flex items-center gap-2">
+                    <span id="settings-panel-icon"></span>
+                    餐廳清單
+                </h2>
+                <button id="settings-close-btn" class="p-2 bg-white rounded-full text-blue-400 hover:text-blue-600 transition-colors">
+                    <span id="settings-close-icon"></span>
+                </button>
+            </div>
+            <div class="p-4 border-b border-slate-100 flex gap-2">
+                <input 
+                    type="text" 
+                    id="new-item-input"
+                    placeholder="輸入想吃的東西..." 
+                    enterKeyHint="done"
+                    class="flex-1 bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-300 transition-colors text-slate-700"
+                />
+                <button 
+                    id="add-item-btn"
+                    class="bg-blue-400 hover:bg-blue-500 text-white p-3 rounded-xl shadow-sm active:scale-95 transition-all w-12 h-12 flex items-center justify-center"
+                >
+                    <span id="add-item-icon"></span>
+                </button>
+            </div>
+            <div id="items-list" class="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-2">
+                <!-- Items list rendered here --></div>
+        </div>
+    </div>
+
+    <script>
+        // Inline SVG Icons for HTML
+        const Icons = {
+            Settings: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-settings"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.44l-1.35.9a2 2 0 0 1-2.45-.66l-.37-.47a2 2 0 0 0-2.83 0l-1.3 1.3a2 2 0 0 0 0 2.83l.47.37a2 2 0 0 1 .66 2.45l-.9 1.35H2a2 2 0 0 0-2 2v.44a2 2 0 0 0 2 2h.44l.9-1.35a2 2 0 0 1 2.45-.66l.37.47a2 2 0 0 0 2.83 0l1.3-1.3a2 2 0 0 0 0-2.83l-.47-.37a2 2 0 0 1-.66-2.45l.9-1.35v-.44a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>',
+            Plus: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus"><path d="M5 12h14"/><path d="M12 5v14"/></svg>',
+            X: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
+            RotateCcw: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-rotate-ccw"><path d="M3 3v5h5"/><path d="M3.05 13A8 8 0 1 0 12 4"/><path d="M21 21v-5h-5"/><path d="M20.95 11A8 8 0 1 1 12 20"/></svg>',
+            Sparkles: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sparkles"><path d="m12 3-1.9 4.1-4.1 1.9 4.1 1.9 1.9 4.1 1.9-4.1 4.1-1.9-4.1-1.9z"/></svg>',
+            Utensils: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-utensils"><path d="M3 2v20c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2V2c0-1.1-.9-2-2-2H5C3.9 0 3 .9 3 2zM15 2v20c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2V2c0-1.1-.9-2-2-2h-2c-1.1 0-2 .9-2 2z"/></svg>'
+        };
+
+        // --- Global State and Data ---
+        const PASTEL_COLORS = [
+            'bg-pink-400', 'bg-blue-400', 'bg-yellow-400', 
+            'bg-green-400', 'bg-purple-400', 'bg-orange-400', 'bg-red-400', 'bg-teal-400'
+        ];
+        const DEFAULT_ITEMS = [
+            '日式拉麵', '迴轉壽司', '便利商店', '雞腿便當', '鐵板燒', 
+            '麥當勞', '牛肉麵', '義大利麵', '健康餐盒', '隨便吃'
+        ];
+
+        let items = [];
+        let isSpinning = false;
+        let showResult = false;
+        let result = null;
+        let ballColor = 'bg-pink-400';
+        let showSettings = false;
+
+        // --- Utility Functions ---
+
+        /** 獲取初始清單並從 localStorage 載入 */
+        function loadItems() {
+            try {
+                const savedItems = localStorage.getItem('lunchGachaponItems');
+                items = savedItems ? JSON.parse(savedItems) : DEFAULT_ITEMS;
+            } catch (e) {
+                console.error('Failed to load items from localStorage', e);
+                items = DEFAULT_ITEMS;
+            }
+        }
+
+        /** 儲存清單到 localStorage */
+        function saveItems() {
+            localStorage.setItem('lunchGachaponItems', JSON.stringify(items));
+        }
+
+        /** 渲染扭蛋機內部的裝飾球 */
+        function renderDecorativeBalls(isSpinning) {
+            const container = document.getElementById('balls-container');
+            if (!container) return;
+
+            // 確保只在初始化時生成一次
+            if (container.children.length === 0) {
+                const decorativeBalls = Array.from({ length: 15 }).map((_, i) => ({
+                    id: i,
+                    color: PASTEL_COLORS[i % PASTEL_COLORS.length],
+                    left: Math.random() * 70 + 10 + '%', 
+                    bottom: Math.random() * 20 + 5 + '%', 
+                    scale: 0.85 + Math.random() * 0.2,
+                    animDuration: 0.4 + Math.random() * 0.4,
+                    animDelay: Math.random() * 0.2,
+                    rotation: Math.random() * 360
+                }));
+                
+                decorativeBalls.forEach(ball => {
+                    const div = document.createElement('div');
+                    div.id = `ball-${ball.id}`;
+                    div.className = `absolute w-12 h-12 rounded-full border-2 border-black/5 gacha-ball ${ball.color} transition-transform`;
+                    div.style.left = ball.left;
+                    div.style.bottom = ball.bottom;
+                    div.style.transform = `scale(${ball.scale}) rotate(${ball.rotation}deg)`;
+                    div.style.zIndex = ball.id;
+                    div.dataset.duration = ball.animDuration;
+                    container.appendChild(div);
+                });
+            }
+
+            // 更新動畫狀態
+            const ballElements = container.children;
+            for (let i = 0; i < ballElements.length; i++) {
+                const ball = ballElements[i];
+                ball.classList.toggle('ball-chaos', isSpinning);
+                ball.style.animationDuration = isSpinning ? `${ball.dataset.duration}s` : '0s';
+                ball.style.animationDelay = isSpinning ? '0s' : '0s'; 
+            }
+        }
+
+        /** 抽籤邏輯 */
+        function handleSpin() {
+            if (isSpinning || items.length === 0) return;
+
+            isSpinning = true;
+            showResult = false;
+            
+            // 隨機選色
+            ballColor = PASTEL_COLORS[Math.floor(Math.random() * PASTEL_COLORS.length)];
+            
+            // 更新機器和球的狀態
+            updateUI();
+            
+            // 1. Shake/Chaos phase (1.2s)
+            setTimeout(() => {
+                // 2. Calculate result
+                const winner = items[Math.floor(Math.random() * items.length)];
+                result = winner;
+                
+                // 3. Stop shaking, start dropping animation phase
+                setTimeout(() => {
+                    isSpinning = false;
+                    showResult = true;
+                    updateUI();
+                }, 800); 
+            }, 1200);
+        }
+
+        /** 重抽或決定後重設狀態 */
+        function handleReset() {
+            showResult = false;
+            result = null;
+            updateUI();
+        }
+
+        /** 顯示/隱藏設定面板 */
+        function toggleSettings(show) {
+            showSettings = show;
+            updateUI();
+            // 如果顯示設定面板，確保清單是最新的
+            if (show) {
+                renderSettingsPanel();
+            }
+        }
+
+        // --- Settings Panel Logic ---
+
+        function addItem() {
+            const input = document.getElementById('new-item-input');
+            const newItem = input.value.trim();
+            if (newItem) {
+                items.push(newItem);
+                input.value = '';
+                saveItems();
+                renderSettingsPanel();
+            }
+        }
+
+        function removeItem(index) {
+            items.splice(index, 1);
+            saveItems();
+            renderSettingsPanel();
+        }
+
+        function renderSettingsPanel() {
+            const listContainer = document.getElementById('items-list');
+            listContainer.innerHTML = ''; // Clear previous items
+            
+            if (items.length === 0) {
+                listContainer.innerHTML = `
+                    <div class="h-full flex flex-col items-center justify-center text-slate-400 opacity-60">
+                        <span class="w-12 h-12 mb-2">${Icons.Utensils}</span>
+                        <p>清單是空的，快加點好吃的！</p>
+                    </div>
+                `;
+            } else {
+                items.forEach((item, index) => {
+                    const div = document.createElement('div');
+                    div.className = "flex items-center justify-between bg-white border border-slate-100 p-3 rounded-xl shadow-sm group hover:border-blue-200 transition-colors";
+                    div.innerHTML = `
+                        <span class="font-medium text-slate-700">${item}</span>
+                        <button 
+                            onclick="removeItem(${index})"
+                            class="text-slate-300 hover:text-red-400 p-2 transition-colors w-8 h-8 flex items-center justify-center"
+                        >
+                            ${Icons.X}
+                        </button>
+                    `;
+                    listContainer.appendChild(div);
+                });
+            }
+        }
+
+        /** 插入 SVG 圖示到 HTML 佔位符中 */
+        function initializeIcons() {
+            // Settings Button Icon
+            document.getElementById('settings-btn-icon').innerHTML = Icons.Settings.replace('width="24" height="24"', 'width="24" height="24"').replace('lucide lucide-settings', 'w-6 h-6 text-slate-400');
+            
+            // Result Card Icons
+            document.getElementById('sparkle-top-left').innerHTML = Icons.Sparkles.replace('width="24" height="24"', 'w-12 h-12');
+            document.getElementById('sparkle-bottom-right').innerHTML = Icons.Sparkles.replace('width="24" height="24"', 'w-10 h-10');
+            document.getElementById('utensils-icon').innerHTML = Icons.Utensils.replace('width="24" height="24"', 'w-8 h-8 text-white drop-shadow-md');
+            document.getElementById('respin-icon').innerHTML = Icons.RotateCcw.replace('width="24" height="24"', 'w-4 h-4');
+
+            // Settings Panel Icons
+            document.getElementById('settings-panel-icon').innerHTML = Icons.Settings.replace('width="24" height="24"', 'w-5 h-5');
+            document.getElementById('settings-close-icon').innerHTML = Icons.X.replace('width="24" height="24"', 'w-5 h-5');
+            document.getElementById('add-item-icon').innerHTML = Icons.Plus.replace('width="24" height="24"', 'w-6 h-6');
+        }
+
+
+        // --- UI Rendering ---
+
+        /** 主要渲染/更新函式 */
+        function updateUI() {
+            const machineBody = document.getElementById('gachapon-machine');
+            const spinButton = document.getElementById('spin-button');
+            const fallingBallContainer = document.getElementById('falling-ball-container');
+            const resultOverlay = document.getElementById('result-overlay');
+            const settingsPanel = document.getElementById('settings-panel');
+            
+            // 1. 機器震動狀態
+            if (machineBody) {
+                machineBody.classList.toggle('machine-shake', isSpinning);
+            }
+            if (spinButton) {
+                spinButton.disabled = isSpinning || items.length === 0;
+                // 更新按鈕樣式以反映禁用狀態
+                spinButton.classList.toggle('rotate-[360deg]', isSpinning);
+                spinButton.classList.toggle('scale-95', isSpinning);
+                spinButton.classList.toggle('border-none', isSpinning);
+                spinButton.classList.toggle('shadow-inner', isSpinning);
+                spinButton.classList.toggle('bg-yellow-400', isSpinning);
+                spinButton.classList.toggle('hover:scale-105', !isSpinning);
+                spinButton.classList.toggle('active:scale-95', !isSpinning);
+            }
+
+            // 2. 掉落球動畫
+            if (fallingBallContainer) {
+                fallingBallContainer.innerHTML = ''; // 清空
+                if (isSpinning) {
+                    fallingBallContainer.innerHTML = `
+                        <div 
+                            class="absolute left-1/2 -translate-x-1/2 w-16 h-16 rounded-full border-2 border-white shadow-lg z-30 ball-drop ${ballColor} gacha-ball"
+                            style="animation-delay: 0.4s;"
+                        />
+                    `;
+                }
+            }
+
+            // 3. 結果面板
+            if (resultOverlay) {
+                resultOverlay.classList.toggle('hidden', !showResult);
+                if (showResult && result) {
+                    document.getElementById('result-text').textContent = result;
+                    document.getElementById('result-utensils-container').className = `mb-4 p-4 rounded-full ${ballColor} shadow-inner`;
+                    document.getElementById('capsule-top').className = `w-32 h-16 rounded-t-full ${ballColor} border-4 border-white shadow-2xl capsule-top-open origin-bottom mb-[-2px] gacha-ball`;
+                    document.getElementById('capsule-bottom').className = `w-32 h-16 rounded-b-full ${ballColor} border-4 border-white shadow-2xl capsule-bottom-open origin-top mt-[-2px] gacha-ball`;
+                }
+            }
+            
+            // 4. 設定面板
+            if (settingsPanel) {
+                settingsPanel.classList.toggle('hidden', !showSettings);
+                if (showSettings) {
+                    renderSettingsPanel();
+                }
+            }
+
+            // 5. 更新內部的裝飾球動畫狀態
+            renderDecorativeBalls(isSpinning);
+        }
+
+        // --- Initialization ---
+
+        window.onload = function() {
+            // Set Favicon
+            const faviconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="16" y="12" width="32" height="40" rx="4" fill="#BFDBFE" stroke="#3B82F6" stroke-width="2"/><circle cx="32" cy="32" r="10" fill="white" opacity="0.5"/><path d="M 24 52 L 40 52" stroke="#3B82F6" stroke-width="2" stroke-linecap="round"/><circle cx="32" cy="36" r="4" fill="#F472B6"/></svg>`;
+            const faviconUrl = 'data:image/svg+xml,' + encodeURIComponent(faviconSvg);
+            let link = document.querySelector("link[rel~='icon']");
+            if (!link) {
+                link = document.createElement('link');
+                link.rel = 'icon';
+                document.getElementsByTagName('head')[0].appendChild(link);
+            }
+            link.href = faviconUrl;
+
+            // 2. Initialize Icons
+            initializeIcons();
+
+            // 3. Load Data & Initial UI
+            loadItems();
+            updateUI();
+            
+            // 4. Bind Event Listeners
+            document.getElementById('spin-button').onclick = handleSpin;
+            document.getElementById('settings-btn').onclick = () => toggleSettings(true);
+            document.getElementById('settings-close-btn').onclick = () => toggleSettings(false);
+            document.getElementById('add-item-btn').onclick = addItem;
+            document.getElementById('new-item-input').onkeypress = (e) => {
+                if (e.key === 'Enter') addItem();
+            };
+
+            // Result button event listeners (using delegated clicks on overlay)
+            document.getElementById('result-overlay').addEventListener('click', (e) => {
+                if (e.target.id === 'respin-button' || e.target.closest('#respin-button')) {
+                    handleSpin();
+                } else if (e.target.id === 'decide-button' || e.target.closest('#decide-button')) {
+                    handleReset();
+                }
+            });
+        };
+    </script>
+</body>
+</html>
